@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: cranckeyy
+    env: node
+    plan: free
+    buildCommand: npm run install:all && npm run build
+    startCommand: npm start
+    envVars:
+      - key: GMAIL_USER
+        value: furweirdpurposes@gmail.com
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: PORT
+        value: 10000

@@ -1,0 +1,16 @@
+{
+  "name": "cranckeyy",
+  "version": "1.0.0",
+  "description": "Exclusive 1-on-1 Real-time Messaging App with 60s rotating OTP, 20m inactivity lock, 1-hour session segmentation, and custom dual-color themes",
+  "scripts": {
+    "install:all": "npm install --prefix client && npm install --prefix server",
+    "build": "npm --prefix client run build",
+    "start": "node server/src/server.js",
+    "test": "node server/test_verification.js",
+    "dev:server": "node --watch server/src/server.js",
+    "dev:client": "npm --prefix client run dev"
+  },
+  "keywords": ["messenger", "pwa", "realtime", "otp", "totp", "e2e"],
+  "author": "",
+  "license": "MIT"
+}

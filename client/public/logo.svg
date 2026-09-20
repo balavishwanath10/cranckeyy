@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" rx="64" fill="#09090b"/>
+  <rect x="16" y="16" width="224" height="224" rx="48" fill="none" stroke="#27272a" stroke-width="4"/>
+  <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="'Inter', -apple-system, sans-serif" font-weight="900" font-size="96" fill="#ffffff" letter-spacing="-4">ck</text>
+  <circle cx="196" cy="60" r="10" fill="#10b981"/>
+</svg>
