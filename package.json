@@ -10,6 +10,9 @@
     "dev:server": "node --watch server/src/server.js",
     "dev:client": "npm --prefix client run dev"
   },
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "keywords": ["messenger", "pwa", "realtime", "otp", "totp", "e2e"],
   "author": "",
   "license": "MIT"
