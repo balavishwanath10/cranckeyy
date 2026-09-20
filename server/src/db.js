@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +25,10 @@ db.exec(`
     display_name TEXT NOT NULL,
     avatar_url TEXT DEFAULT '',
     partner_alias TEXT DEFAULT '',
+    partner_note TEXT DEFAULT '',
+    partner_avatar TEXT DEFAULT '',
+    password_hash TEXT DEFAULT '',
+    password_salt TEXT DEFAULT '',
     created_at INTEGER NOT NULL
   );
 
@@ -78,9 +83,11 @@ try {
   db.exec(`UPDATE users SET phone_number = replace(replace(phone_number, ' ', ''), '-', '') WHERE phone_number NOT LIKE '%@%';`);
   db.exec(`UPDATE pairs SET user1_phone = replace(replace(user1_phone, ' ', ''), '-', '') WHERE user1_phone NOT LIKE '%@%';`);
   db.exec(`UPDATE pairs SET user2_phone = replace(replace(user2_phone, ' ', ''), '-', '') WHERE user2_phone NOT LIKE '%@%';`);
-  db.exec(`ALTER TABLE users ADD COLUMN partner_note TEXT DEFAULT '';`);
-  db.exec(`ALTER TABLE users ADD COLUMN partner_avatar TEXT DEFAULT '';`);
 } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN partner_note TEXT DEFAULT '';`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN partner_avatar TEXT DEFAULT '';`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN password_hash TEXT DEFAULT '';`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN password_salt TEXT DEFAULT '';`); } catch {}
 
 // Universal identifier normalizer for email and phone numbers
 export function normalizeIdentifier(val) {
@@ -113,9 +120,12 @@ export function getUser(identifier) {
   }
   if (!row) return null;
   const pair = getPairForUser(row.phone_number);
+  const { password_hash, password_salt, ...safeUser } = row;
   return {
-    ...row,
+    ...safeUser,
     identifier: row.phone_number,
+    hasPassword: Boolean(password_hash && password_hash.trim().length > 0),
+    isPaired: !!pair,
     partnerId: pair ? pair.partnerId : null,
     partnerPhone: pair ? pair.partnerId : null
   };
@@ -124,10 +134,14 @@ export function getUser(identifier) {
 export function getAllUsers() {
   const query = db.prepare(`SELECT * FROM users ORDER BY created_at ASC`);
   const rows = query.all();
-  return rows.map(r => ({
-    ...r,
-    identifier: r.phone_number
-  }));
+  return rows.map(r => {
+    const { password_hash, password_salt, ...safeUser } = r;
+    return {
+      ...safeUser,
+      identifier: r.phone_number,
+      hasPassword: Boolean(password_hash && password_hash.trim().length > 0)
+    };
+  });
 }
 
 export function upsertUser(identifier, displayName = '', avatarUrl = '', partnerAlias = '') {
@@ -155,6 +169,53 @@ export function upsertUser(identifier, displayName = '', avatarUrl = '', partner
     update.run(displayName, avatarUrl, partnerAlias, existing.phone_number);
     return getUser(existing.phone_number);
   }
+}
+
+// ==========================================
+// PASSWORD MANAGEMENT (Salted Scrypt Hashing)
+// ==========================================
+
+export function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return { hash, salt };
+}
+
+export function verifyPasswordHash(password, hash, salt) {
+  if (!password || !hash || !salt) return false;
+  try {
+    const computed = crypto.scryptSync(password, salt, 64).toString('hex');
+    return crypto.timingSafeEqual(Buffer.from(computed, 'hex'), Buffer.from(hash, 'hex'));
+  } catch {
+    return false;
+  }
+}
+
+export function setUserPassword(identifier, password) {
+  if (!identifier || !password) return { success: false, error: 'Identifier and password are required' };
+  const clean = normalizeIdentifier(identifier);
+  if (!getUser(clean)) {
+    upsertUser(clean);
+  }
+  const { hash, salt } = hashPassword(password);
+  const stmt = db.prepare(`UPDATE users SET password_hash = ?, password_salt = ? WHERE phone_number = ?`);
+  stmt.run(hash, salt, clean);
+  return { success: true, user: getUser(clean) };
+}
+
+export function hasUserPassword(identifier) {
+  if (!identifier) return false;
+  const clean = normalizeIdentifier(identifier);
+  const user = db.prepare(`SELECT password_hash FROM users WHERE phone_number = ?`).get(clean);
+  return Boolean(user && user.password_hash && user.password_hash.trim().length > 0);
+}
+
+export function verifyUserPassword(identifier, password) {
+  if (!identifier || !password) return false;
+  const clean = normalizeIdentifier(identifier);
+  const row = db.prepare(`SELECT password_hash, password_salt FROM users WHERE phone_number = ?`).get(clean);
+  if (!row || !row.password_hash || !row.password_salt) return false;
+  return verifyPasswordHash(password, row.password_hash, row.password_salt);
 }
 
 export function getPairForUser(identifier) {

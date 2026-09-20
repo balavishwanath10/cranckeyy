@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   KeyRound, 
   ArrowRight, 
@@ -7,11 +7,13 @@ import {
   Mail, 
   CheckCircle2, 
   Lock, 
+  Unlock,
   Users, 
   ShieldCheck,
-  Send
+  Eye,
+  EyeOff
 } from 'lucide-react';
-import { requestOtp, verifyOtp, establishPairApi } from '../services/api';
+import { checkUserApi, loginWithPasswordApi, setPasswordApi, establishPairApi } from '../services/api';
 import AlreadyConnectedModal from './AlreadyConnectedModal';
 
 export default function AuthView({ onLoginSuccess }) {
@@ -19,66 +21,62 @@ export default function AuthView({ onLoginSuccess }) {
   const savedIdentifier = localStorage.getItem('cranckeyy_saved_identifier') || '';
 
   const [identifier, setIdentifier] = useState(savedIdentifier);
-  const [step, setStep] = useState('identifier'); // 'identifier' | 'otp' | 'pairing'
-  const [otp, setOtp] = useState('');
-  const [channel, setChannel] = useState('email');
+  const [step, setStep] = useState('identifier'); // 'identifier' | 'password' | 'set_password' | 'pairing'
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [verifiedUser, setVerifiedUser] = useState(null);
   const [person2Id, setPerson2Id] = useState('');
   const [blockedPartner, setBlockedPartner] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   // Detect whether current input looks like email or phone
   const isInputEmail = identifier.includes('@');
 
-  const handleRequestOtp = async (targetId = identifier, isAuto = false) => {
-    if (!targetId || targetId.trim().length < 3) {
+  const handleCheckIdentifier = async (e) => {
+    if (e) e.preventDefault();
+    const cleanId = identifier.trim();
+    if (!cleanId || cleanId.length < 2) {
       setError('Please enter a valid email address or phone number');
       return;
     }
 
-    if (!isAuto) setLoading(true);
+    setLoading(true);
     setError('');
+    setSuccessMsg('');
 
     try {
-      const res = await requestOtp(targetId.trim());
-      if (res.success) {
-        setChannel(res.channel || (targetId.includes('@') ? 'email' : 'sms'));
-        setStep('otp');
-        setSuccessMsg(res.message || `OTP dispatched to your registered ${targetId.includes('@') ? 'email' : 'mobile'}.`);
+      const res = await checkUserApi(cleanId);
+      if (res.hasPassword) {
+        // User already has a password set -> proceed to enter password
+        setStep('password');
+        setPassword('');
+        if (res.displayName) {
+          setDisplayName(res.displayName);
+        }
       } else {
-        setError(res.error || 'Failed to dispatch OTP');
+        // User is new or has not set a password yet -> proceed to set password
+        setStep('set_password');
+        setPassword('');
+        setConfirmPassword('');
+        setSuccessMsg('Set a secure password for your account to continue.');
       }
     } catch {
-      setError('Connection error. Please check backend server.');
+      setError('Unable to reach server. Please check your connection.');
     } finally {
-      if (!isAuto) setLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleResendOtp = async () => {
-    setResending(true);
-    setError('');
-    try {
-      const res = await requestOtp(identifier.trim());
-      if (res.success) {
-        setSuccessMsg(`New OTP sent to your registered ${identifier.includes('@') ? 'email' : 'mobile'}.`);
-      } else {
-        setError(res.error || 'Failed to resend OTP');
-      }
-    } catch {
-      setError('Failed to resend OTP');
-    } finally {
-      setResending(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e) => {
+  const handleLogin = async (e) => {
     if (e) e.preventDefault();
-    if (!otp || otp.trim().length !== 6) {
-      setError('Please enter the 6-digit OTP code');
+    if (!password) {
+      setError('Please enter your password');
       return;
     }
 
@@ -86,25 +84,60 @@ export default function AuthView({ onLoginSuccess }) {
     setError('');
 
     try {
-      const res = await verifyOtp(identifier.trim(), otp.trim());
+      const res = await loginWithPasswordApi(identifier.trim(), password);
       if (res.success) {
         localStorage.setItem('cranckeyy_saved_identifier', identifier.trim());
 
-        // Check if user already has an established connection
         if (res.isPaired) {
-          // Returning user: connection established! Directly enters chat!
+          // Returning user with established pair: enters chat!
           onLoginSuccess(res.user);
         } else {
-          // New user: must enter Person 2's email or phone number to establish pair!
+          // Returning user without established pair: prompt to link partner
           setVerifiedUser(res.user);
           setStep('pairing');
-          setSuccessMsg('OTP verified! Now enter Person 2\'s email or phone to establish your pair.');
+          setSuccessMsg('Password verified! Link your partner to begin chatting.');
         }
       } else {
-        setError(res.error || 'Invalid or expired OTP code');
+        setError(res.error || 'Incorrect password. Please try again.');
       }
     } catch {
-      setError('Verification failed. Check network connection.');
+      setError('Login failed. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetPassword = async (e) => {
+    if (e) e.preventDefault();
+    if (!password || password.length < 4) {
+      setError('Password must be at least 4 characters long');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await setPasswordApi(identifier.trim(), password, displayName.trim());
+      if (res.success) {
+        localStorage.setItem('cranckeyy_saved_identifier', identifier.trim());
+
+        if (res.isPaired) {
+          onLoginSuccess(res.user);
+        } else {
+          setVerifiedUser(res.user);
+          setStep('pairing');
+          setSuccessMsg('Password set successfully! Link your partner to begin chatting.');
+        }
+      } else {
+        setError(res.error || 'Failed to set password');
+      }
+    } catch {
+      setError('Failed to set password. Check network connection.');
     } finally {
       setLoading(false);
     }
@@ -156,7 +189,7 @@ export default function AuthView({ onLoginSuccess }) {
             ck
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white">cranckeyy</h1>
-          <p className="text-xs text-zinc-400">Exclusive 1-on-1 Messenger • Email & Mobile OTP</p>
+          <p className="text-xs text-zinc-400">Exclusive 1-on-1 Messenger • Password Protected</p>
         </div>
 
         {error && (
@@ -175,7 +208,7 @@ export default function AuthView({ onLoginSuccess }) {
 
         {/* STEP 1: ENTER EMAIL OR PHONE NUMBER */}
         {step === 'identifier' && (
-          <form onSubmit={(e) => { e.preventDefault(); handleRequestOtp(); }} className="space-y-5">
+          <form onSubmit={handleCheckIdentifier} className="space-y-5">
             <div className="space-y-1.5 text-left">
               <label className="text-xs font-semibold text-zinc-300">Enter Your Email or Phone Number</label>
               <div className="relative flex items-center">
@@ -191,25 +224,24 @@ export default function AuthView({ onLoginSuccess }) {
                   onChange={(e) => setIdentifier(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-700/80 rounded-2xl pl-10 pr-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all font-mono"
                   required
+                  autoFocus
                 />
               </div>
               <p className="text-[11px] text-zinc-500">
-                A 6-digit OTP will be sent directly to this email or mobile number.
+                Log in or register with your personal email or mobile number.
               </p>
             </div>
 
-
-
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-4 rounded-2xl bg-white text-black font-bold text-sm hover:bg-zinc-200 transition-all active:scale-95 shadow flex items-center justify-center gap-2"
+              disabled={loading || !identifier.trim()}
+              className="w-full py-3.5 px-4 rounded-2xl bg-white text-black font-bold text-sm hover:bg-zinc-200 transition-all active:scale-95 shadow flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
               ) : (
                 <>
-                  <span>Send OTP</span>
+                  <span>Continue</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -217,79 +249,169 @@ export default function AuthView({ onLoginSuccess }) {
           </form>
         )}
 
-        {/* STEP 2: ENTER OTP (STANDARD EXPIRY - NO 60s RELOADING) */}
-        {step === 'otp' && (
-          <form onSubmit={handleVerifyOtp} className="space-y-5">
-            
-            {/* Header / Info */}
+        {/* STEP 2A: ENTER EXISTING PASSWORD */}
+        {step === 'password' && (
+          <form onSubmit={handleLogin} className="space-y-5">
+            {/* Header / Account info */}
             <div className="flex flex-col items-center justify-center space-y-2 pb-1">
-              <div className="w-12 h-12 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-emerald-400 shadow-inner">
-                {identifier.includes('@') ? <Mail className="w-6 h-6" /> : <Smartphone className="w-6 h-6" />}
+              <div className="w-12 h-12 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white shadow-inner">
+                <Lock className="w-6 h-6 text-emerald-400" />
               </div>
               <div className="text-center">
                 <span className="text-xs font-mono text-zinc-300 font-semibold">{identifier}</span>
-                <p className="text-[11px] text-zinc-500">
-                  OTP sent to your {identifier.includes('@') ? 'email' : 'phone number'}.
+                <p className="text-[11px] text-zinc-400">
+                  {displayName ? `Welcome back, ${displayName}!` : 'Enter your password to access the chat.'}
                 </p>
                 <button
                   type="button"
-                  onClick={() => { setStep('identifier'); }}
+                  onClick={() => { setStep('identifier'); setError(''); setSuccessMsg(''); }}
                   className="block text-[11px] text-zinc-500 hover:text-white underline mx-auto mt-1"
                 >
-                  (Change email/phone)
+                  (Change account)
                 </button>
               </div>
             </div>
 
-            {/* Verification Notice */}
-            <div className="p-3.5 rounded-2xl bg-zinc-950/80 border border-zinc-800 text-xs text-zinc-400 space-y-1">
-              <span className="font-semibold text-zinc-300 block">Check your {identifier.includes('@') ? 'Email' : 'SMS'}</span>
-              <p className="text-[11px] text-zinc-500">
-                Please enter the 6-digit verification code delivered to your registered {identifier.includes('@') ? 'email inbox (or spam)' : 'phone messages'}.
-              </p>
-            </div>
-
-            {/* 6-Digit OTP Input */}
+            {/* Password input */}
             <div className="space-y-1.5 text-left">
-              <label className="text-xs font-semibold text-zinc-300">Enter 6-Digit Verification Code</label>
-              <input
-                type="text"
-                maxLength={6}
-                placeholder="• • • • • •"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-4 py-3 text-center text-2xl font-mono tracking-widest text-white placeholder-zinc-600 focus:outline-none focus:border-white transition-all"
-                autoFocus
-              />
+              <label className="text-xs font-semibold text-zinc-300">Password</label>
+              <div className="relative flex items-center">
+                <KeyRound className="w-4 h-4 absolute left-3.5 text-zinc-500" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-700/80 rounded-2xl pl-10 pr-11 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all font-mono"
+                  required
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 text-zinc-400 hover:text-white transition"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <button
               type="submit"
-              disabled={loading || otp.length !== 6}
+              disabled={loading || !password}
               className="w-full py-3.5 px-4 rounded-2xl bg-white text-black font-bold text-sm hover:bg-zinc-200 transition-all active:scale-95 shadow disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
               ) : (
                 <>
-                  <Lock className="w-4 h-4" />
-                  <span>Verify OTP & Enter</span>
+                  <Unlock className="w-4 h-4" />
+                  <span>Enter Chat</span>
                 </>
               )}
             </button>
+          </form>
+        )}
 
-            {/* Resend OTP Button */}
-            <div className="text-center pt-1">
-              <button
-                type="button"
-                onClick={handleResendOtp}
-                disabled={resending}
-                className="text-xs text-zinc-400 hover:text-white transition flex items-center justify-center gap-1.5 mx-auto"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${resending ? 'animate-spin' : ''}`} />
-                <span>{resending ? 'Resending code...' : 'Didn\'t receive code? Resend OTP'}</span>
-              </button>
+        {/* STEP 2B: SET NEW PASSWORD */}
+        {step === 'set_password' && (
+          <form onSubmit={handleSetPassword} className="space-y-4">
+            {/* Header / Account info */}
+            <div className="flex flex-col items-center justify-center space-y-2 pb-1">
+              <div className="w-12 h-12 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white shadow-inner">
+                <KeyRound className="w-6 h-6 text-amber-400" />
+              </div>
+              <div className="text-center">
+                <span className="text-xs font-mono text-zinc-300 font-semibold">{identifier}</span>
+                <p className="text-[11px] text-zinc-400">
+                  Create a password to protect your 1-on-1 chat.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setStep('identifier'); setError(''); setSuccessMsg(''); }}
+                  className="block text-[11px] text-zinc-500 hover:text-white underline mx-auto mt-1"
+                >
+                  (Change account)
+                </button>
+              </div>
             </div>
+
+            {/* Optional Display Name */}
+            <div className="space-y-1 text-left">
+              <label className="text-xs font-semibold text-zinc-300">Your Name (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. Alex"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-700/80 rounded-2xl px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all"
+              />
+            </div>
+
+            {/* Set Password */}
+            <div className="space-y-1 text-left">
+              <label className="text-xs font-semibold text-zinc-300">Create Password</label>
+              <div className="relative flex items-center">
+                <Lock className="w-4 h-4 absolute left-3.5 text-zinc-500" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="At least 4 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-700/80 rounded-2xl pl-10 pr-11 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all font-mono"
+                  required
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 text-zinc-400 hover:text-white transition"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm Password */}
+            <div className="space-y-1 text-left">
+              <label className="text-xs font-semibold text-zinc-300">Confirm Password</label>
+              <div className="relative flex items-center">
+                <Lock className="w-4 h-4 absolute left-3.5 text-zinc-500" />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Re-enter password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-700/80 rounded-2xl pl-10 pr-11 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-all font-mono"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3.5 text-zinc-400 hover:text-white transition"
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !password || !confirmPassword}
+              className="w-full py-3.5 px-4 rounded-2xl bg-white text-black font-bold text-sm hover:bg-zinc-200 transition-all active:scale-95 shadow disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+            >
+              {loading ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Set Password & Enter</span>
+                </>
+              )}
+            </button>
           </form>
         )}
 
@@ -324,8 +446,6 @@ export default function AuthView({ onLoginSuccess }) {
                 Your partner can log in using this email or mobile without needing to link again.
               </p>
             </div>
-
-
 
             <button
               type="submit"

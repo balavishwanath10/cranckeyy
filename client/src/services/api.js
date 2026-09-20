@@ -1,5 +1,42 @@
 const BASE_URL = '/api';
 
+export async function checkUserApi(identifier) {
+  const res = await fetch(`${BASE_URL}/auth/check-user`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier })
+  });
+  return res.json();
+}
+
+export async function loginWithPasswordApi(identifier, password) {
+  const res = await fetch(`${BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier, password })
+  });
+  return res.json();
+}
+
+export async function setPasswordApi(identifier, password, displayName = '') {
+  const res = await fetch(`${BASE_URL}/auth/set-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier, password, displayName })
+  });
+  return res.json();
+}
+
+export async function verifyPasswordApi(identifier, password) {
+  const res = await fetch(`${BASE_URL}/auth/verify-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier, password })
+  });
+  return res.json();
+}
+
+// Legacy OTP compatibility
 export async function requestOtp(identifier) {
   const res = await fetch(`${BASE_URL}/auth/request-otp`, {
     method: 'POST',

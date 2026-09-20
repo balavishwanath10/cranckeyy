@@ -27,7 +27,10 @@ import {
   updateMessageText, 
   toggleMessageReaction,
   getAllSettings,
-  setAppSetting 
+  setAppSetting,
+  setUserPassword,
+  verifyUserPassword,
+  hasUserPassword
 } from './db.js';
 import { generateOtp, verifyOtp, sendOtpNotification, isEmail } from './otpService.js';
 import { getOrCreateCurrentSession, recordSessionActivity } from './sessionManager.js';
@@ -82,7 +85,126 @@ const upload = multer({
 // REST API ENDPOINTS
 // ==========================================
 
-// 1. Request OTP via Email or Mobile Number
+// Check User & Password Status
+app.post('/api/auth/check-user', (req, res) => {
+  try {
+    const rawId = req.body.identifier || req.body.phone || req.body.email;
+    if (!rawId || typeof rawId !== 'string' || rawId.trim().length < 2) {
+      return res.status(400).json({ error: 'Valid email address or phone number is required' });
+    }
+    const cleanId = normalizeIdentifier(rawId);
+    const user = getUser(cleanId);
+    const hasPassword = hasUserPassword(cleanId);
+    return res.json({
+      exists: !!user,
+      hasPassword,
+      displayName: user?.display_name || '',
+      identifier: cleanId
+    });
+  } catch (err) {
+    console.error('check-user error:', err);
+    return res.status(500).json({ error: 'Failed to check user status' });
+  }
+});
+
+// Set or Register Password
+app.post('/api/auth/set-password', (req, res) => {
+  try {
+    const rawId = req.body.identifier || req.body.phone || req.body.email;
+    const { password, displayName } = req.body;
+    if (!rawId || !password) {
+      return res.status(400).json({ error: 'Email/Phone and password are required' });
+    }
+    if (password.length < 4) {
+      return res.status(400).json({ error: 'Password must be at least 4 characters long' });
+    }
+    const cleanId = normalizeIdentifier(rawId);
+    const setResult = setUserPassword(cleanId, password);
+    if (!setResult.success) {
+      return res.status(400).json({ error: setResult.error });
+    }
+    if (displayName) {
+      upsertUser(cleanId, displayName);
+    }
+    const user = getUser(cleanId);
+    const pair = getPairForUser(cleanId);
+    return res.json({
+      success: true,
+      message: 'Password set successfully',
+      user: {
+        ...user,
+        phone_number: user.identifier
+      },
+      isPaired: !!pair,
+      partnerId: pair?.partnerId || null,
+      partnerPhone: pair?.partnerId || null
+    });
+  } catch (err) {
+    console.error('set-password error:', err);
+    return res.status(500).json({ error: 'Failed to set password' });
+  }
+});
+
+// Log In with Password
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const rawId = req.body.identifier || req.body.phone || req.body.email;
+    const { password } = req.body;
+    if (!rawId || !password) {
+      return res.status(400).json({ error: 'Email/Phone and password are required' });
+    }
+    const cleanId = normalizeIdentifier(rawId);
+    const user = getUser(cleanId);
+    if (!user) {
+      return res.status(404).json({ error: 'Account not found. Please set a password first.', notFound: true });
+    }
+    const hasPass = hasUserPassword(cleanId);
+    if (!hasPass) {
+      return res.status(400).json({ error: 'No password set for this account. Please set a password.', needsPasswordSetup: true });
+    }
+    const isValid = verifyUserPassword(cleanId, password);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Incorrect password. Please enter the right password to access chat.' });
+    }
+    const pair = getPairForUser(cleanId);
+    return res.json({
+      success: true,
+      message: 'Authentication successful',
+      user: {
+        ...user,
+        phone_number: user.identifier
+      },
+      isPaired: !!pair,
+      partnerId: pair?.partnerId || null,
+      partnerPhone: pair?.partnerId || null
+    });
+  } catch (err) {
+    console.error('login error:', err);
+    return res.status(500).json({ error: 'Authentication failed' });
+  }
+});
+
+// Fast Password Verification (for Inactivity Lock)
+app.post('/api/auth/verify-password', (req, res) => {
+  try {
+    const rawId = req.body.identifier || req.body.phone || req.body.email;
+    const { password } = req.body;
+    if (!rawId || !password) {
+      return res.status(400).json({ error: 'Password is required' });
+    }
+    const cleanId = normalizeIdentifier(rawId);
+    const isValid = verifyUserPassword(cleanId, password);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Incorrect password. Please try again.' });
+    }
+    return res.json({ success: true, message: 'Unlocked successfully' });
+  } catch (err) {
+    console.error('verify-password error:', err);
+    return res.status(500).json({ error: 'Password verification failed' });
+  }
+});
+
+// Legacy OTP Endpoints (Fallback)
 app.post('/api/auth/request-otp', async (req, res) => {
   try {
     const rawId = req.body.identifier || req.body.phone || req.body.email;
