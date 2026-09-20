@@ -114,7 +114,37 @@ export function verifyOtp(identifier, enteredOtp) {
 }
 
 /**
- * Dispatches the OTP to phone (SMS) or email
+ * Resolves CallMeBot WhatsApp API Key for a phone number
+ * Supports:
+ * - Single key: CALLMEBOT_API_KEY or WHATSAPP_API_KEY
+ * - Multiple keys: CALLMEBOT_KEYS="919494xxxx:key1,919876xxxx:key2" or JSON string
+ */
+function getWhatsAppApiKey(phone) {
+  const digits = phone.replace(/\D/g, '');
+  if (process.env.CALLMEBOT_KEYS) {
+    try {
+      const map = JSON.parse(process.env.CALLMEBOT_KEYS);
+      if (map[digits]) return map[digits];
+      if (map['+' + digits]) return map['+' + digits];
+      const last10 = digits.slice(-10);
+      for (const [k, v] of Object.entries(map)) {
+        if (k.replace(/\D/g, '').endsWith(last10)) return v;
+      }
+    } catch {
+      const parts = process.env.CALLMEBOT_KEYS.split(',');
+      for (const part of parts) {
+        const [p, k] = part.split(':');
+        if (p && k && digits.endsWith(p.replace(/\D/g, '').slice(-10))) {
+          return k.trim();
+        }
+      }
+    }
+  }
+  return process.env.CALLMEBOT_API_KEY || process.env.WHATSAPP_API_KEY || null;
+}
+
+/**
+ * Dispatches the OTP to phone (SMS/WhatsApp) or email
  * @param {string} identifier 
  * @param {string} otp 
  */
@@ -165,8 +195,31 @@ export async function sendOtpNotification(identifier, otp) {
     };
   }
 
-  // Otherwise dispatch via SMS
-  // 1. Fast2SMS Gateway (India quick SMS)
+  // Otherwise dispatch via WhatsApp or SMS
+  // 1. Free WhatsApp Gateway via CallMeBot
+  const waApiKey = getWhatsAppApiKey(cleanId);
+  if (waApiKey) {
+    try {
+      let intlPhone = cleanId.replace(/\D/g, '');
+      if (intlPhone.length === 10) {
+        intlPhone = '91' + intlPhone; // Default to India (+91) if 10 digits
+      }
+      console.log(`[WhatsApp Gateway] Sending free WhatsApp OTP to +${intlPhone}...`);
+      const messageText = `*cranckeyy Verification Code*\n\nYour code is: *${otp}*\n\nValid for 10 minutes. Do not share this code with anyone.`;
+      const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent('+' + intlPhone)}&text=${encodeURIComponent(messageText)}&apikey=${encodeURIComponent(waApiKey.trim())}`;
+      
+      const waRes = await fetch(url);
+      const waText = await waRes.text();
+      console.log(`[WhatsApp Gateway] CallMeBot response:`, waText.slice(0, 120));
+      if (waRes.ok && !waText.toLowerCase().includes('error')) {
+        return { success: true, channel: 'whatsapp', method: 'callmebot', target: cleanId };
+      }
+    } catch (err) {
+      console.error(`[WhatsApp Gateway] CallMeBot error:`, err.message);
+    }
+  }
+
+  // 2. Fast2SMS Gateway (India quick SMS)
   if (process.env.FAST2SMS_API_KEY) {
     try {
       const phoneDigits = cleanId.replace(/\D/g, '').slice(-10);

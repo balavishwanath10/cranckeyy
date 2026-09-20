@@ -97,7 +97,9 @@ app.post('/api/auth/request-otp', async (req, res) => {
     // Send via SMS or Email
     const dispatchResult = await sendOtpNotification(cleanId, otp);
 
-    const channelText = dispatchResult.channel === 'email' ? 'email' : 'mobile number';
+    let channelText = 'mobile number';
+    if (dispatchResult.channel === 'email') channelText = 'email';
+    else if (dispatchResult.channel === 'whatsapp') channelText = 'WhatsApp';
     return res.json({
       success: true,
       identifier: cleanId,
