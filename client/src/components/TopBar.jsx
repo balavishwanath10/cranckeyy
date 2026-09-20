@@ -24,6 +24,8 @@ export default function TopBar({
   onWallpaperChange,
   wallpaperBrightness,
   onWallpaperBrightnessChange,
+  messageFontSize = 14,
+  onMessageFontSizeChange,
   onLockNow,
   onLogout,
   isPartnerOnline = false,
@@ -205,6 +207,8 @@ export default function TopBar({
             onWallpaperChange={onWallpaperChange}
             wallpaperBrightness={wallpaperBrightness}
             onWallpaperBrightnessChange={onWallpaperBrightnessChange}
+            messageFontSize={messageFontSize}
+            onMessageFontSizeChange={onMessageFontSizeChange}
             onLockNow={onLockNow}
             onLogout={onLogout}
           />

@@ -12,7 +12,10 @@ import {
   Upload,
   SunMedium,
   Sun,
-  User
+  User,
+  Type,
+  Minus,
+  Plus
 } from 'lucide-react';
 import { uploadMedia } from '../services/api';
 
@@ -26,6 +29,8 @@ export default function SettingsDropdown({
   onWallpaperChange,
   wallpaperBrightness = 60,
   onWallpaperBrightnessChange,
+  messageFontSize = 14,
+  onMessageFontSizeChange,
   onLockNow,
   onLogout
 }) {
@@ -214,6 +219,89 @@ export default function SettingsDropdown({
               className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-white"
             />
             <Sun className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          </div>
+        </div>
+
+        {/* Message Font Size Adjuster (Reduce or Increase) */}
+        <div className="px-3 py-2.5 bg-zinc-950/70 rounded-xl border border-zinc-800/80 space-y-2 mt-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Type className="w-3.5 h-3.5 text-sky-400" />
+              <span className="text-[11px] font-semibold text-zinc-300">Message Font Size</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-mono text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded">
+                {messageFontSize}px
+              </span>
+              {/* Quick Stepper: Reduce (-) and Increase (+) */}
+              <div className="flex items-center bg-zinc-800 rounded-lg p-0.5 border border-zinc-700/60">
+                <button
+                  type="button"
+                  onClick={() => onMessageFontSizeChange?.(Math.max(11, messageFontSize - 1))}
+                  disabled={messageFontSize <= 11}
+                  title="Reduce font size (-1px)"
+                  className="w-5 h-5 flex items-center justify-center rounded text-zinc-300 hover:text-white hover:bg-zinc-700 active:scale-95 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer font-bold text-[10px]"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMessageFontSizeChange?.(Math.min(24, messageFontSize + 1))}
+                  disabled={messageFontSize >= 24}
+                  title="Increase font size (+1px)"
+                  className="w-5 h-5 flex items-center justify-center rounded text-zinc-300 hover:text-white hover:bg-zinc-700 active:scale-95 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer font-bold text-[10px]"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Preset Dropdown Menu */}
+          <div className="relative">
+            <select
+              value={messageFontSize}
+              onChange={(e) => onMessageFontSizeChange?.(Number(e.target.value))}
+              className="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-white cursor-pointer font-sans appearance-none pr-7"
+            >
+              <option value={11}>11px - Smallest</option>
+              <option value={12}>12px - Small</option>
+              <option value={13}>13px - Compact</option>
+              <option value={14}>14px - Standard (Default)</option>
+              <option value={16}>16px - Medium</option>
+              <option value={18}>18px - Large</option>
+              <option value={20}>20px - Extra Large</option>
+              <option value={22}>22px - Huge</option>
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-zinc-400">
+              <ChevronRight className="w-3 h-3 rotate-90" />
+            </div>
+          </div>
+
+          {/* Smooth Range Slider */}
+          <div className="flex items-center gap-2 pt-0.5">
+            <span className="text-[10px] font-bold text-zinc-500 font-mono w-3 text-center">A</span>
+            <input
+              type="range"
+              min={11}
+              max={22}
+              step={1}
+              value={messageFontSize}
+              onChange={(e) => onMessageFontSizeChange?.(Number(e.target.value))}
+              className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-sky-400"
+            />
+            <span className="text-[13px] font-bold text-sky-400 font-mono w-3 text-center">A</span>
+          </div>
+
+          {/* Live Preview Box */}
+          <div className="p-2 rounded-lg bg-zinc-900/90 border border-zinc-800 text-center overflow-hidden">
+            <span className="text-zinc-500 text-[9px] block font-mono pb-0.5">Live Message Preview</span>
+            <span 
+              className="text-zinc-100 font-medium leading-tight block truncate transition-all"
+              style={{ fontSize: `${messageFontSize}px` }}
+            >
+              Hello! How are you doing?
+            </span>
           </div>
         </div>
 

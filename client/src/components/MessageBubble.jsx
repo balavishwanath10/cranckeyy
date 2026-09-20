@@ -21,6 +21,7 @@ export default function MessageBubble({
   partnerName = 'Partner',
   bubbleBoxColor,
   bubbleTextColor,
+  messageFontSize = 14,
   onReply,
   onEdit,
   onReact,
@@ -227,7 +228,8 @@ export default function MessageBubble({
                     handleSaveEdit(e);
                   }
                 }}
-                className="w-full bg-black/20 text-inherit border border-current rounded-lg p-2 text-xs focus:outline-none resize-none leading-relaxed"
+                className="w-full bg-black/20 text-inherit border border-current rounded-lg p-2 focus:outline-none resize-none leading-relaxed"
+                style={{ fontSize: `${messageFontSize || 14}px` }}
                 autoFocus
               />
               <div className="flex justify-end gap-1 text-[10px]">
@@ -247,7 +249,12 @@ export default function MessageBubble({
               </div>
             </form>
           ) : (
-            <p className="whitespace-pre-wrap break-words [word-break:break-word] leading-relaxed text-[13px]">{message.text}</p>
+            <p 
+              className="whitespace-pre-wrap break-words [word-break:break-word] leading-relaxed"
+              style={{ fontSize: `${messageFontSize || 14}px` }}
+            >
+              {message.text}
+            </p>
           )}
 
           {/* Footer: Edited badge, Timestamp, and Delivery status */}

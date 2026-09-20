@@ -56,6 +56,13 @@ export default function App() {
   const [wallpaperType, setWallpaperType] = useState('none');
   const [wallpaperBrightness, setWallpaperBrightness] = useState(60);
 
+  // Message font size in pixels (persisted in localStorage and backend settings)
+  const [messageFontSize, setMessageFontSize] = useState(() => {
+    const saved = localStorage.getItem('cranckeyy_message_font_size');
+    const num = Number(saved);
+    return (num && num >= 11 && num <= 24) ? num : 14;
+  });
+
   // Settings Panel sub-view state
   const [activePanel, setActivePanel] = useState(null); // 'sessions' | 'colors' | 'profiles' | 'otp' | 'notifications' | null
 
@@ -152,6 +159,13 @@ export default function App() {
           if (settingsData.wallpaperUrl) setWallpaperUrl(settingsData.wallpaperUrl);
           if (settingsData.wallpaperType) setWallpaperType(settingsData.wallpaperType);
           if (settingsData.wallpaperBrightness !== undefined) setWallpaperBrightness(Number(settingsData.wallpaperBrightness));
+          if (settingsData.messageFontSize !== undefined) {
+            const sizeNum = Number(settingsData.messageFontSize);
+            if (!isNaN(sizeNum) && sizeNum >= 11 && sizeNum <= 24) {
+              setMessageFontSize(sizeNum);
+              localStorage.setItem('cranckeyy_message_font_size', String(sizeNum));
+            }
+          }
         }
       } catch (err) {
         console.error('Failed to load initial data:', err);
@@ -407,6 +421,16 @@ export default function App() {
     await saveSettings({ wallpaperBrightness: num });
   };
 
+  // Adjust Message Font Size (11px - 24px)
+  const handleMessageFontSizeChange = async (size) => {
+    const num = Math.max(11, Math.min(24, Number(size) || 14));
+    setMessageFontSize(num);
+    localStorage.setItem('cranckeyy_message_font_size', String(num));
+    try {
+      await saveSettings({ messageFontSize: num });
+    } catch {}
+  };
+
   // Send Message via Socket.io
   const handleSendMessage = (data) => {
     const socket = getSocket();
@@ -593,6 +617,8 @@ export default function App() {
           onWallpaperChange={handleWallpaperChange}
           wallpaperBrightness={wallpaperBrightness}
           onWallpaperBrightnessChange={handleWallpaperBrightnessChange}
+          messageFontSize={messageFontSize}
+          onMessageFontSizeChange={handleMessageFontSizeChange}
           onLockNow={lockApp}
           onLogout={handleLogout}
           isPartnerOnline={isPartnerOnline}
@@ -608,6 +634,7 @@ export default function App() {
           isPartnerTyping={isPartnerTyping}
           bubbleBoxColor={bubbleBoxColor}
           bubbleTextColor={bubbleTextColor}
+          messageFontSize={messageFontSize}
           wallpaperUrl={wallpaperUrl}
           wallpaperType={wallpaperType}
           wallpaperBrightness={wallpaperBrightness}

@@ -27,6 +27,7 @@ export default function ChatContainer({
   wallpaperUrl,
   wallpaperType,
   wallpaperBrightness = 60,
+  messageFontSize = 14,
   activeTheme,
   onSendMessage,
   onEditMessage,
@@ -325,6 +326,7 @@ export default function ChatContainer({
                 partnerName={currentUser?.partner_alias || partnerUser?.display_name || 'Partner'}
                 bubbleBoxColor={bubbleBoxColor}
                 bubbleTextColor={bubbleTextColor}
+                messageFontSize={messageFontSize}
                 onReply={(targetMsg) => setReplyTo(targetMsg)}
                 onEdit={onEditMessage}
                 onReact={onReactMessage}
