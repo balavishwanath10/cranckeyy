@@ -8,11 +8,17 @@ const otpStore = new Map();
 const OTP_EXPIRY_MS = 10 * 60 * 1000;
 
 const DEFAULT_SENDER_EMAIL = 'furweirdpurposes@gmail.com';
+const DEFAULT_GMAIL_APP_PASS = 'wrmssswaulaqdfxd';
 
 function getEmailTransporter() {
   const user = process.env.SMTP_USER || process.env.GMAIL_USER || DEFAULT_SENDER_EMAIL;
   let pass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
   
+  // If user is the default furweirdpurposes@gmail.com and no pass was set, use pre-configured app pass
+  if (!pass && user.toLowerCase() === DEFAULT_SENDER_EMAIL.toLowerCase()) {
+    pass = DEFAULT_GMAIL_APP_PASS;
+  }
+
   if (pass) {
     pass = pass.trim().replace(/\s+/g, '');
   }
@@ -165,10 +171,11 @@ export async function sendOtpNotification(identifier, otp) {
     if (transporter) {
       try {
         console.log(`[Email Gateway] Sending real email via SMTP from ${senderEmail} to ${cleanId}...`);
-        await transporter.sendMail({
+        const info = await transporter.sendMail({
           from: `"cranckeyy" <${senderEmail}>`,
           to: cleanId,
           subject: `[cranckeyy] Verification Code: ${otp}`,
+          text: `Your cranckeyy verification code is: ${otp}. Valid for 10 minutes.\n\nDispatched by ${senderEmail}. If you did not request this code, you can safely ignore this email.`,
           html: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; background: #09090b; border: 1px solid #27272a; border-radius: 24px; padding: 32px; color: #f4f4f5; text-align: center;">
               <div style="display: inline-block; width: 48px; height: 48px; line-height: 48px; background: #ffffff; color: #000000; font-size: 20px; font-weight: 900; border-radius: 14px; margin-bottom: 16px;">ck</div>
