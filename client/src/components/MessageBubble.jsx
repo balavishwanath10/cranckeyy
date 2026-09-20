@@ -140,7 +140,7 @@ export default function MessageBubble({
 
   return (
     <div 
-      className={`relative flex items-end gap-2 group transition-transform ${isSender ? 'justify-end ml-auto max-w-[85%]' : 'justify-start mr-auto max-w-[85%]'}`}
+      className={`relative flex items-end gap-2 group transition-transform ${isSender ? 'justify-end ml-auto max-w-[70%]' : 'justify-start mr-auto max-w-[70%]'}`}
       style={{ transform: `translateX(${swipeOffset}px)` }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -161,11 +161,11 @@ export default function MessageBubble({
         </div>
       )}
 
-      <div className={`space-y-1 ${isSender ? 'items-end text-right' : 'items-start text-left'} w-full flex flex-col`}>
+      <div className={`space-y-1 ${isSender ? 'items-end text-right' : 'items-start text-left'} max-w-full flex flex-col`}>
         
         {/* Quoted Reply Reference */}
         {message.reply_to && (
-          <div className="text-left text-xs p-2 px-3 rounded-xl bg-zinc-900/80 border-l-2 border-emerald-400 text-zinc-400 max-w-sm mb-0.5 backdrop-blur-sm shadow-sm">
+          <div className="text-left text-xs p-2 px-3 rounded-xl bg-zinc-900/80 border-l-2 border-emerald-400 text-zinc-400 max-w-full w-fit mb-0.5 backdrop-blur-sm shadow-sm">
             <span className="font-semibold text-zinc-200 text-[10px] block">
               Replying to {isSameUser(message.reply_to.sender_phone || message.reply_to.sender_id, senderPhone) ? 'You' : partnerName}
             </span>
@@ -173,15 +173,15 @@ export default function MessageBubble({
           </div>
         )}
 
-        {/* Bubble Box */}
+        {/* Bubble Box - Stays within 70% container width */}
         <div
           onClick={(e) => {
-            if (e.target.closest('a') || e.target.closest('img') || e.target.closest('audio') || e.target.closest('button') || e.target.closest('input')) {
+            if (e.target.closest('a') || e.target.closest('img') || e.target.closest('audio') || e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea')) {
               return;
             }
             setShowMenu(prev => !prev);
           }}
-          className={`p-3.5 rounded-2xl text-sm shadow-md relative border transition-all select-text ${
+          className={`p-3 sm:p-3.5 rounded-2xl text-sm shadow-md relative border transition-all select-text w-fit max-w-full ${
             isSender ? 'rounded-br-sm' : 'rounded-bl-sm'
           }`}
           style={getBubbleStyle()}
@@ -189,7 +189,7 @@ export default function MessageBubble({
           
           {/* Media Attachment if present */}
           {message.media_url && (
-            <div className="mb-2 rounded-xl overflow-hidden border border-black/10 max-w-xs">
+            <div className="mb-2 rounded-xl overflow-hidden border border-black/10 max-w-full">
               {message.media_type?.startsWith('image') || message.media_url.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
                 <img
                   src={message.media_url}
@@ -247,7 +247,7 @@ export default function MessageBubble({
               </div>
             </form>
           ) : (
-            <p className="whitespace-pre-wrap break-words leading-relaxed text-[13px]">{message.text}</p>
+            <p className="whitespace-pre-wrap break-words [word-break:break-word] leading-relaxed text-[13px]">{message.text}</p>
           )}
 
           {/* Footer: Edited badge, Timestamp, and Delivery status */}

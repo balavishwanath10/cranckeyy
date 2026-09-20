@@ -154,15 +154,6 @@ export default function ChatContainer({
     setTimeout(() => scrollToBottom(true), 50);
   };
 
-  const handleKeyDown = (e) => {
-    // Enter without Shift sends the message on desktop keyboards
-    // Shift+Enter inserts a new line
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
-    }
-  };
-
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -486,6 +477,7 @@ export default function ChatContainer({
           </button>
 
           {/* Multiline auto-expanding textarea */}
+          {/* Multiline auto-expanding textarea: Enter key creates new line */}
           <div className="flex-1 min-w-0 py-1">
             <textarea
               ref={textareaRef}
@@ -493,16 +485,16 @@ export default function ChatContainer({
               placeholder={isUploading ? "Uploading attachment..." : "Type a message..."}
               value={inputText}
               onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
               disabled={isUploading}
               className="w-full bg-transparent text-[16px] sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none px-1.5 py-0.5 leading-relaxed resize-none overflow-y-auto overscroll-contain block"
               style={{ minHeight: '26px', maxHeight: '140px' }}
             />
           </div>
 
-          {/* Ergonomic Send Button */}
+          {/* Ergonomic Send Button - Exclusive trigger to send message */}
           <button
             type="submit"
+            onClick={handleSubmit}
             disabled={!inputText.trim() && !isUploading}
             title="Send Message"
             className="flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2 mb-0.5 rounded-xl bg-gradient-to-r from-zinc-100 via-white to-zinc-200 text-black hover:from-white hover:to-zinc-100 transition-all active:scale-95 shadow font-bold text-xs shrink-0 group border border-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
