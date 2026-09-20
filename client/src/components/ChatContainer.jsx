@@ -46,10 +46,20 @@ export default function ChatContainer({
   const [isDeletingSession, setIsDeletingSession] = useState(false);
 
   const scrollContainerRef = useRef(null);
+  const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const isNearBottomRef = useRef(true);
   const prevMessagesCountRef = useRef(messages.length);
+
+  // Auto-resize textarea to fit content up to max height, then scroll
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const scrollH = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = `${Math.min(scrollH, 140)}px`;
+    }
+  }, [inputText]);
 
   // Directly scroll the message container without touching page window
   const scrollToBottom = (smooth = true) => {
@@ -135,10 +145,22 @@ export default function ChatContainer({
     });
 
     setInputText('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
     setReplyTo(null);
     setShowEmojiPicker(false);
     // User sent message -> ensure immediate smooth scroll to bottom
     setTimeout(() => scrollToBottom(true), 50);
+  };
+
+  const handleKeyDown = (e) => {
+    // Enter without Shift sends the message on desktop keyboards
+    // Shift+Enter inserts a new line
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
   };
 
   const handleFileUpload = async (e) => {
@@ -167,6 +189,9 @@ export default function ChatContainer({
 
   const insertEmoji = (emoji) => {
     setInputText(prev => prev + emoji);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
   };
 
   // Dynamic wallpaper styling
@@ -429,8 +454,8 @@ export default function ChatContainer({
           </div>
         )}
 
-        {/* Message Input Form - Always Enabled & Seamless */}
-        <form onSubmit={handleSubmit} className="flex items-center gap-1.5 sm:gap-2 bg-zinc-900/90 border border-zinc-700/80 rounded-2xl p-1 sm:p-1.5 pl-2.5 sm:pl-3 focus-within:border-white transition-all shadow-xl">
+        {/* Message Input Form - Multiline auto-expanding like messaging apps */}
+        <form onSubmit={handleSubmit} className="flex items-end gap-1.5 sm:gap-2 bg-zinc-900/90 border border-zinc-700/80 rounded-2xl p-1 sm:p-1.5 pl-2 sm:pl-2.5 focus-within:border-white transition-all shadow-xl">
           
           {/* Media attachment button */}
           <button
@@ -438,7 +463,7 @@ export default function ChatContainer({
             disabled={isUploading}
             onClick={() => fileInputRef.current?.click()}
             title="Attach Media / Image / Audio"
-            className="p-1.5 sm:p-2 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition active:scale-95 shrink-0"
+            className="p-1.5 sm:p-2 mb-0.5 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition active:scale-95 shrink-0 cursor-pointer"
           >
             <Paperclip className="w-4 h-4" />
           </button>
@@ -455,27 +480,32 @@ export default function ChatContainer({
             type="button"
             onClick={() => setShowEmojiPicker(prev => !prev)}
             title="Insert Emoji"
-            className="p-1.5 sm:p-2 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition active:scale-95 shrink-0"
+            className="p-1.5 sm:p-2 mb-0.5 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition active:scale-95 shrink-0 cursor-pointer"
           >
             <Smile className="w-4 h-4" />
           </button>
 
-          {/* Text input (16px on mobile prevents iOS Safari auto-zoom) */}
-          <input
-            type="text"
-            placeholder={isUploading ? "Uploading attachment..." : "Type a message..."}
-            value={inputText}
-            onChange={handleInputChange}
-            disabled={isUploading}
-            className="w-full bg-transparent text-[16px] sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none px-1.5 sm:px-2 py-1 leading-normal"
-          />
+          {/* Multiline auto-expanding textarea */}
+          <div className="flex-1 min-w-0 py-1">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              placeholder={isUploading ? "Uploading attachment..." : "Type a message..."}
+              value={inputText}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              disabled={isUploading}
+              className="w-full bg-transparent text-[16px] sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none px-1.5 py-0.5 leading-relaxed resize-none overflow-y-auto overscroll-contain block"
+              style={{ minHeight: '26px', maxHeight: '140px' }}
+            />
+          </div>
 
           {/* Ergonomic Send Button */}
           <button
             type="submit"
             disabled={!inputText.trim() && !isUploading}
             title="Send Message"
-            className="flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-r from-zinc-100 via-white to-zinc-200 text-black hover:from-white hover:to-zinc-100 transition-all active:scale-95 shadow font-bold text-xs shrink-0 group border border-white disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2 mb-0.5 rounded-xl bg-gradient-to-r from-zinc-100 via-white to-zinc-200 text-black hover:from-white hover:to-zinc-100 transition-all active:scale-95 shadow font-bold text-xs shrink-0 group border border-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             <span className="hidden min-[440px]:inline">Send</span>
             <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-black text-white flex items-center justify-center group-hover:translate-x-0.5 transition-transform shadow-sm">

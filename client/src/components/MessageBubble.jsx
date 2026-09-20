@@ -217,11 +217,17 @@ export default function MessageBubble({
           {/* Text or Inline Edit Form */}
           {isEditing ? (
             <form onSubmit={handleSaveEdit} className="space-y-2 mt-1 min-w-[200px]">
-              <input
-                type="text"
+              <textarea
+                rows={2}
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
-                className="w-full bg-black/20 text-inherit border border-current rounded-lg p-2 text-xs focus:outline-none"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSaveEdit(e);
+                  }
+                }}
+                className="w-full bg-black/20 text-inherit border border-current rounded-lg p-2 text-xs focus:outline-none resize-none leading-relaxed"
                 autoFocus
               />
               <div className="flex justify-end gap-1 text-[10px]">
