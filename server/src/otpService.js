@@ -166,9 +166,39 @@ export async function sendOtpNotification(identifier, otp) {
   }
 
   // Otherwise dispatch via SMS
+  // 1. Fast2SMS Gateway (India quick SMS)
+  if (process.env.FAST2SMS_API_KEY) {
+    try {
+      const phoneDigits = cleanId.replace(/\D/g, '').slice(-10);
+      console.log(`[SMS Gateway] Sending carrier SMS via Fast2SMS to ${phoneDigits}...`);
+      const fastRes = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+        method: 'POST',
+        headers: {
+          'authorization': process.env.FAST2SMS_API_KEY.trim(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          route: 'otp',
+          variables_values: otp,
+          numbers: phoneDigits
+        })
+      });
+      const data = await fastRes.json();
+      if (data.return) {
+        console.log(`[SMS Gateway] Fast2SMS dispatched successfully to ${phoneDigits}`);
+        return { success: true, channel: 'sms', method: 'fast2sms', target: cleanId };
+      } else {
+        console.warn(`[SMS Gateway] Fast2SMS notice:`, data.message);
+      }
+    } catch (err) {
+      console.error(`[SMS Gateway] Fast2SMS error:`, err.message);
+    }
+  }
+
+  // 2. Twilio Carrier SMS Gateway
   if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
     try {
-      console.log(`[SMS Gateway] Sending live carrier SMS to ${cleanId}...`);
+      console.log(`[SMS Gateway] Sending live carrier SMS via Twilio to ${cleanId}...`);
       const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
       const params = new URLSearchParams({
         To: cleanId,
